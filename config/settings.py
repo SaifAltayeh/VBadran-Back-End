@@ -23,6 +23,12 @@ ALLOWED_HOSTS = [
 if os.environ.get("VERCEL_URL"):
     ALLOWED_HOSTS.append(os.environ["VERCEL_URL"])
 
+ON_VERCEL = bool(
+    os.environ.get("VERCEL")
+    or os.environ.get("VERCEL_ENV")
+    or os.environ.get("VERCEL_URL")
+)
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -86,14 +92,14 @@ if "test" in sys.argv:
             "NAME": ":memory:",
         }
     }
-elif os.environ.get("DATABASE_URL"):
+elif os.environ.get("DATABASE_URL", "").strip():
     DATABASES = {
         "default": dj_database_url.parse(
             os.environ["DATABASE_URL"],
             conn_max_age=600,
         )
     }
-elif os.environ.get("VERCEL") and not os.environ.get("DATABASE_URL"):
+elif ON_VERCEL:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -160,7 +166,7 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "false" if os.environ.get("VERCEL") else "true").lower() == "true"
+    SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "false" if ON_VERCEL else "true").lower() == "true"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (

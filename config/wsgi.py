@@ -26,7 +26,7 @@ def _bootstrap():
         call_command("seed_demo")
 
 
-if os.environ.get("VERCEL"):
+if os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV") or os.environ.get("VERCEL_URL"):
     try:
         _bootstrap()
     except Exception as exc:
