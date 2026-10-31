@@ -99,14 +99,7 @@ elif os.environ.get("DATABASE_URL", "").strip():
             conn_max_age=600,
         )
     }
-elif ON_VERCEL:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": "/tmp/vbadran.sqlite3",
-        }
-    }
-else:
+elif os.environ.get("DB_USER") or os.environ.get("DB_PASSWORD"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -115,6 +108,13 @@ else:
             "PASSWORD": os.environ.get("DB_PASSWORD", ""),
             "HOST": os.environ.get("DB_HOST", "localhost"),
             "PORT": os.environ.get("DB_PORT", "5432"),
+        }
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": "/tmp/vbadran.sqlite3" if ON_VERCEL else BASE_DIR / "db.sqlite3",
         }
     }
 
