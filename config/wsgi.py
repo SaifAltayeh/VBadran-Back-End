@@ -26,7 +26,7 @@ def _bootstrap():
         call_command("seed_demo")
 
 
-if os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV") or os.environ.get("VERCEL_URL"):
+if os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV") or os.environ.get("VERCEL_URL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
     try:
         _bootstrap()
     except Exception as exc:

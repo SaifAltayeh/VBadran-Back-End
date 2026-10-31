@@ -7,7 +7,14 @@ import dj_database_url
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+ON_VERCEL = bool(
+    os.environ.get("VERCEL")
+    or os.environ.get("VERCEL_ENV")
+    or os.environ.get("VERCEL_URL")
+    or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+)
+if not ON_VERCEL:
+    load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
 DEBUG = os.environ.get("DEBUG", "true").lower() == "true"
@@ -22,12 +29,6 @@ ALLOWED_HOSTS = [
 ]
 if os.environ.get("VERCEL_URL"):
     ALLOWED_HOSTS.append(os.environ["VERCEL_URL"])
-
-ON_VERCEL = bool(
-    os.environ.get("VERCEL")
-    or os.environ.get("VERCEL_ENV")
-    or os.environ.get("VERCEL_URL")
-)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -85,6 +86,7 @@ TEMPLATES = [
     },
 ]
 
+_database_url = os.environ.get("DATABASE_URL", "").strip()
 if "test" in sys.argv:
     DATABASES = {
         "default": {
@@ -92,10 +94,10 @@ if "test" in sys.argv:
             "NAME": ":memory:",
         }
     }
-elif os.environ.get("DATABASE_URL", "").strip():
+elif _database_url and "localhost" not in _database_url and "127.0.0.1" not in _database_url:
     DATABASES = {
         "default": dj_database_url.parse(
-            os.environ["DATABASE_URL"],
+            _database_url,
             conn_max_age=600,
         )
     }
@@ -111,10 +113,13 @@ elif os.environ.get("DB_USER") or os.environ.get("DB_PASSWORD"):
         }
     }
 else:
+    sqlite_path = BASE_DIR / "db.sqlite3"
+    if ON_VERCEL or not os.access(BASE_DIR, os.W_OK):
+        sqlite_path = "/tmp/vbadran.sqlite3"
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": "/tmp/vbadran.sqlite3" if ON_VERCEL else BASE_DIR / "db.sqlite3",
+            "NAME": sqlite_path,
         }
     }
 
