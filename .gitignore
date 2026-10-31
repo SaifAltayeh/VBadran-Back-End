@@ -1,0 +1,14 @@
+media/
+staticfiles/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+.env
+.Python
+*.egg-info/
+dist/
+build/
+.DS_Store
+.vercel
