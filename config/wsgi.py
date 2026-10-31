@@ -21,7 +21,10 @@ def _bootstrap():
     from programs.models import Program
 
     call_command("migrate", interactive=False)
-    call_command("collectstatic", interactive=False, verbosity=0)
+    try:
+        call_command("collectstatic", interactive=False, verbosity=0)
+    except Exception as exc:
+        print(f"collectstatic skipped: {exc}", flush=True)
     if not Program.objects.exists():
         call_command("seed_demo")
 
