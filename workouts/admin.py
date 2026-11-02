@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Exercise, ProgramSchedule, Workout, WorkoutCompletion, WorkoutExercise
+from .models import Exercise, PortalVideo, ProgramSchedule, Workout, WorkoutCompletion, WorkoutExercise
 
 
 class WorkoutExerciseInline(admin.TabularInline):
@@ -14,6 +14,13 @@ class ExerciseAdmin(admin.ModelAdmin):
     list_filter = ("muscle_group", "difficulty")
     search_fields = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
+
+
+@admin.register(PortalVideo)
+class PortalVideoAdmin(admin.ModelAdmin):
+    list_display = ("title", "program", "order", "is_active")
+    list_filter = ("program", "is_active")
+    search_fields = ("title", "video_url")
 
 
 @admin.register(Workout)

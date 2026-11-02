@@ -13,8 +13,8 @@ class Exercise(models.Model):
     name = models.CharField(max_length=160)
     slug = models.SlugField(unique=True)
     description = models.TextField(blank=True)
-    video_url = models.URLField(blank=True)
-    thumbnail = models.CharField(max_length=255, blank=True)
+    video_url = models.CharField(max_length=500, blank=True)
+    thumbnail = models.TextField(blank=True)
     image_alt = models.CharField(max_length=255, blank=True)
     muscle_group = models.CharField(max_length=80)
     difficulty = models.CharField(max_length=24, choices=Difficulty.choices, default=Difficulty.INTERMEDIATE)
@@ -26,6 +26,24 @@ class Exercise(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class PortalVideo(models.Model):
+    program = models.ForeignKey(Program, related_name="portal_videos", on_delete=models.CASCADE)
+    title = models.CharField(max_length=160)
+    description = models.TextField(blank=True)
+    video_url = models.CharField(max_length=500)
+    thumbnail = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return self.title
 
 
 class Workout(models.Model):

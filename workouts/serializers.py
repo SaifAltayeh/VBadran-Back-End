@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Exercise, Workout, WorkoutExercise
+from .models import Exercise, PortalVideo, Workout, WorkoutExercise
 
 
 class ExerciseSerializer(serializers.ModelSerializer):
@@ -22,6 +22,12 @@ class ExerciseSerializer(serializers.ModelSerializer):
             "instructions",
             "tips",
         ]
+
+
+class PortalVideoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PortalVideo
+        fields = ["id", "title", "description", "video_url", "thumbnail", "order"]
 
 
 class WorkoutExerciseSerializer(serializers.ModelSerializer):

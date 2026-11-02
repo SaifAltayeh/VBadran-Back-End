@@ -5,12 +5,18 @@ from cms.views import MediaUploadView, SiteHomeAdminView
 
 from .views import (
     ClientAdminViewSet,
+    ExerciseAdminViewSet,
     InquiryAdminViewSet,
+    NutritionPlanAdminViewSet,
     OverviewView,
     PackageAdminViewSet,
+    PortalVideoAdminViewSet,
     ProgramAdminViewSet,
+    ScheduleAdminViewSet,
+    SubscriptionAdminViewSet,
     TestimonialAdminViewSet,
     TransformationAdminViewSet,
+    WorkoutAdminViewSet,
 )
 
 router = DefaultRouter()
@@ -20,6 +26,12 @@ router.register("transformations", TransformationAdminViewSet, basename="staff-t
 router.register("testimonials", TestimonialAdminViewSet, basename="staff-testimonial")
 router.register("inquiries", InquiryAdminViewSet, basename="staff-inquiry")
 router.register("clients", ClientAdminViewSet, basename="staff-client")
+router.register("exercises", ExerciseAdminViewSet, basename="staff-exercise")
+router.register("portal-videos", PortalVideoAdminViewSet, basename="staff-portal-video")
+router.register("workouts", WorkoutAdminViewSet, basename="staff-workout")
+router.register("schedules", ScheduleAdminViewSet, basename="staff-schedule")
+router.register("nutrition-plans", NutritionPlanAdminViewSet, basename="staff-nutrition-plan")
+router.register("subscriptions", SubscriptionAdminViewSet, basename="staff-subscription")
 
 urlpatterns = [
     path("overview/", OverviewView.as_view(), name="staff-overview"),
