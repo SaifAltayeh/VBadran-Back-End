@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from cms.views import SiteHomeAdminView
+from cms.views import MediaUploadView, SiteHomeAdminView
 
 from .views import (
     ClientAdminViewSet,
@@ -24,5 +24,6 @@ router.register("clients", ClientAdminViewSet, basename="staff-client")
 urlpatterns = [
     path("overview/", OverviewView.as_view(), name="staff-overview"),
     path("site/", SiteHomeAdminView.as_view(), name="staff-site"),
+    path("uploads/", MediaUploadView.as_view(), name="staff-uploads"),
     path("", include(router.urls)),
 ]

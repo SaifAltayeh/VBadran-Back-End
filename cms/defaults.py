@@ -8,8 +8,8 @@ DEFAULT_HOME = {
             "ar": "تدريب شخصي / تدريب عن بُعد · بدران",
         },
         "title": {
-            "en": ["Build your", "strongest", "self."],
-            "ar": ["ابنِ", "أقوى", "نسخة منك."],
+            "en": "Build your strongest self.",
+            "ar": "ابنِ أقوى نسخة منك.",
         },
         "lead": {
             "en": "Strength, nutrition, and a week you can keep.",
