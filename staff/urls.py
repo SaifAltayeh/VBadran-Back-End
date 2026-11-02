@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from cms.views import MediaUploadView, SiteHomeAdminView
+from cms.views import MediaUploadView, SiteHomeAdminView, VideoUploadView
 
 from .views import (
     ClientAdminViewSet,
@@ -37,5 +37,6 @@ urlpatterns = [
     path("overview/", OverviewView.as_view(), name="staff-overview"),
     path("site/", SiteHomeAdminView.as_view(), name="staff-site"),
     path("uploads/", MediaUploadView.as_view(), name="staff-uploads"),
+    path("uploads/video/", VideoUploadView.as_view(), name="staff-video-uploads"),
     path("", include(router.urls)),
 ]

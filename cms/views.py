@@ -118,3 +118,36 @@ class MediaUploadView(APIView):
                 "file_path": relative,
             }
         )
+
+
+class VideoUploadView(APIView):
+    permission_classes = [IsAdminUser]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        upload = request.FILES.get("file")
+        if not upload:
+            return Response({"detail": "Choose a video file."}, status=400)
+
+        content_type = (upload.content_type or "").lower()
+        extension = Path(upload.name or "upload.mp4").suffix.lower() or ".mp4"
+        allowed = {".mp4", ".webm", ".mov", ".m4v"}
+        if extension not in allowed and not content_type.startswith("video/"):
+            return Response({"detail": "Upload an MP4 or WebM video."}, status=400)
+
+        max_bytes = int(3.5 * 1024 * 1024)
+        if upload.size and upload.size > max_bytes:
+            return Response(
+                {"detail": "Videos must be 3.5MB or smaller. Use a short 1280×720 MP4."},
+                status=400,
+            )
+
+        payload = upload.read()
+        mime = content_type if content_type.startswith("video/") else "video/mp4"
+        if extension == ".webm":
+            mime = "video/webm"
+        elif extension == ".mov":
+            mime = "video/quicktime"
+        encoded = base64.b64encode(payload).decode("ascii")
+        data_url = f"data:{mime};base64,{encoded}"
+        return Response({"url": data_url, "path": data_url})
