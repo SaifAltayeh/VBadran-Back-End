@@ -1,8 +1,11 @@
+import base64
+import io
 import uuid
 from pathlib import Path
 
 from django.conf import settings
 from django.core.files.storage import default_storage
+from PIL import Image, UnidentifiedImageError
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
@@ -34,6 +37,28 @@ def normalize_home(data):
     return home
 
 
+def image_to_data_url(upload, max_side=1600, quality=82):
+    try:
+        image = Image.open(upload)
+        image.load()
+    except UnidentifiedImageError as exc:
+        raise ValueError("Only image uploads are allowed.") from exc
+
+    if image.mode in ("RGBA", "P"):
+        image = image.convert("RGBA")
+        background = Image.new("RGB", image.size, (255, 255, 255))
+        background.paste(image, mask=image.split()[-1])
+        image = background
+    elif image.mode != "RGB":
+        image = image.convert("RGB")
+
+    image.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=quality, optimize=True)
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/jpeg;base64,{encoded}"
+
+
 class SiteHomeView(APIView):
     permission_classes = [AllowAny]
 
@@ -63,21 +88,33 @@ class MediaUploadView(APIView):
         upload = request.FILES.get("file")
         if not upload:
             return Response({"detail": "Choose an image file."}, status=400)
-        content_type = getattr(upload, "content_type", "") or ""
-        if not content_type.startswith("image/"):
-            return Response({"detail": "Only image uploads are allowed."}, status=400)
         if upload.size and upload.size > 8 * 1024 * 1024:
             return Response({"detail": "Images must be 8MB or smaller."}, status=400)
 
-        extension = Path(upload.name or "upload.jpg").suffix.lower() or ".jpg"
-        if extension not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
-            extension = ".jpg"
-        filename = f"cms/{uuid.uuid4().hex}{extension}"
-        saved = default_storage.save(filename, upload)
-        relative = f"{settings.MEDIA_URL.rstrip('/')}/{saved.lstrip('/')}"
+        try:
+            data_url = image_to_data_url(upload)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+
+        # Keep a file copy for debugging/local previews when the filesystem is writable.
+        try:
+            upload.seek(0)
+            extension = Path(upload.name or "upload.jpg").suffix.lower() or ".jpg"
+            if extension not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+                extension = ".jpg"
+            filename = f"cms/{uuid.uuid4().hex}{extension}"
+            saved = default_storage.save(filename, upload)
+            relative = f"{settings.MEDIA_URL.rstrip('/')}/{saved.lstrip('/')}"
+            absolute = request.build_absolute_uri(relative)
+        except Exception:
+            relative = ""
+            absolute = data_url
+
         return Response(
             {
-                "url": request.build_absolute_uri(relative),
-                "path": relative,
+                "url": data_url,
+                "path": data_url,
+                "file_url": absolute,
+                "file_path": relative,
             }
         )

@@ -99,6 +99,7 @@ elif _database_url and "localhost" not in _database_url and "127.0.0.1" not in _
         "default": dj_database_url.parse(
             _database_url,
             conn_max_age=600,
+            ssl_require="railway" in _database_url or "rlwy.net" in _database_url,
         )
     }
 elif os.environ.get("DB_USER") or os.environ.get("DB_PASSWORD"):

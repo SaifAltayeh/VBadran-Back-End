@@ -6,9 +6,9 @@ from programs.models import Program
 class Transformation(models.Model):
     client_name = models.CharField(max_length=120)
     slug = models.SlugField(unique=True)
-    before_image = models.CharField(max_length=255)
-    after_image = models.CharField(max_length=255)
-    cover_image = models.CharField(max_length=255, blank=True)
+    before_image = models.TextField()
+    after_image = models.TextField()
+    cover_image = models.TextField(blank=True)
     image_alt = models.CharField(max_length=255, blank=True)
     duration_weeks = models.PositiveIntegerField()
     result_summary = models.CharField(max_length=200)

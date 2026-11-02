@@ -27,7 +27,7 @@ class Program(models.Model):
     difficulty = models.CharField(max_length=24, choices=Difficulty.choices, default=Difficulty.ALL)
     category = models.CharField(max_length=40, choices=Category.choices)
     goal = models.CharField(max_length=180)
-    featured_image = models.CharField(max_length=255, blank=True)
+    featured_image = models.TextField(blank=True)
     image_alt = models.CharField(max_length=255, blank=True)
     is_featured = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
