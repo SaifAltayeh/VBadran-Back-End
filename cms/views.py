@@ -37,7 +37,7 @@ def normalize_home(data):
     return home
 
 
-def image_to_data_url(upload, max_side=1600, quality=82):
+def image_to_data_url(upload, max_side=1200, quality=72):
     try:
         image = Image.open(upload)
         image.load()

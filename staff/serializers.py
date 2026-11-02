@@ -35,6 +35,36 @@ class ProgramAdminSerializer(serializers.ModelSerializer):
             "support_overview",
         ]
 
+    def validate_slug(self, value):
+        slug = (value or "").strip()
+        if not slug:
+            raise serializers.ValidationError("Slug is required.")
+        qs = Program.objects.filter(slug=slug)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("This slug is already used. Choose another.")
+        return slug
+
+    def validate_category(self, value):
+        allowed = {choice for choice, _ in Program.Category.choices}
+        if value not in allowed:
+            raise serializers.ValidationError(
+                f"Use one of: {', '.join(sorted(allowed))}."
+            )
+        return value
+
+    def validate(self, attrs):
+        title = attrs.get("title") or getattr(self.instance, "title", "") or "Program"
+        for field in ("short_description", "description", "goal"):
+            if field in attrs and not str(attrs.get(field) or "").strip():
+                attrs[field] = title
+        if "duration_weeks" in attrs and not attrs.get("duration_weeks"):
+            attrs["duration_weeks"] = 12
+        if "price" in attrs and attrs.get("price") in (None, ""):
+            attrs["price"] = 0
+        return attrs
+
 
 class PackageAdminSerializer(serializers.ModelSerializer):
     class Meta:
