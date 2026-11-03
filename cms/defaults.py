@@ -279,19 +279,18 @@ DEFAULT_HOME = {
         },
     },
     "site": {
-        "email": "hello@vbadran.com",
-        "phoneDisplay": "+962 79 000 0000",
-        "phoneHref": "tel:+962790000000",
+        "email": "Badranbay@gmail.com",
+        "phoneDisplay": "+965 550 71251",
+        "phoneHref": "tel:+96555071251",
         "footerBlurb": {
             "en": "Personal training and online coaching built around your goals, schedule, and progress.",
             "ar": "تدريب شخصي وتدريب عن بُعد مبني حول هدفك وجدولك وتقدّمك.",
         },
         "footerTag": {"en": "Personal training · Online coaching", "ar": "تدريب شخصي · تدريب عن بُعد"},
         "socials": [
-            {"label": "Instagram", "href": "https://instagram.com/vbadran"},
-            {"label": "TikTok", "href": "https://www.tiktok.com/@vbadran"},
-            {"label": "YouTube", "href": "https://youtube.com/@vbadran"},
-            {"label": "WhatsApp", "href": "https://wa.me/962790000000"},
+            {"label": "Instagram", "href": "https://www.instagram.com/vbadrann/"},
+            {"label": "YouTube", "href": "https://www.youtube.com/@vbadran"},
+            {"label": "WhatsApp", "href": "https://wa.me/96555071251"},
         ],
     },
 }

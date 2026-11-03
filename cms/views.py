@@ -34,6 +34,28 @@ def normalize_home(data):
             title[lang] = " ".join(str(part).strip() for part in value if str(part).strip())
     hero["title"] = title
     home["hero"] = hero
+    site = home.get("site") or {}
+    default_site = DEFAULT_HOME.get("site") or {}
+    hrefs = " ".join(str((item or {}).get("href", "")) for item in (site.get("socials") or []) if isinstance(item, dict))
+    stale = (
+        site.get("email") in ("", "hello@vbadran.com")
+        or "962790000000" in str(site.get("phoneHref") or "")
+        or "tiktok" in hrefs.lower()
+        or ("instagram.com/vbadran" in hrefs and "vbadrann" not in hrefs)
+        or "wa.me/962" in hrefs
+    )
+    if stale:
+        site["email"] = default_site.get("email", site.get("email"))
+        site["phoneDisplay"] = default_site.get("phoneDisplay", site.get("phoneDisplay"))
+        site["phoneHref"] = default_site.get("phoneHref", site.get("phoneHref"))
+        site["socials"] = list(default_site.get("socials") or [])
+    else:
+        site["socials"] = [
+            item
+            for item in (site.get("socials") or [])
+            if isinstance(item, dict) and "tiktok" not in str(item.get("href") or "").lower() and str(item.get("label") or "").lower() != "tiktok"
+        ]
+    home["site"] = site
     return home
 
 
