@@ -15,10 +15,24 @@ def make_order_number() -> str:
 
 
 @transaction.atomic
-def create_pending_order(*, full_name, email, phone, country, program, package, terms_accepted, user=None):
+def create_pending_order(
+    *,
+    full_name,
+    email,
+    phone,
+    country,
+    program,
+    package,
+    terms_accepted,
+    user=None,
+    goal="",
+    gym=None,
+):
     product = package or program
     if product is None:
         raise ValueError("Choose a program or package.")
+    if hasattr(product, "is_active") and not product.is_active:
+        raise ValueError("That package is not available.")
     title = package.name if package is not None else program.title
     order = Order.objects.create(
         user=user if getattr(user, "is_authenticated", False) else None,
@@ -27,6 +41,8 @@ def create_pending_order(*, full_name, email, phone, country, program, package, 
         email=email,
         phone=phone or "",
         country=country or "",
+        goal=goal or "",
+        gym=gym,
         program=program,
         package=package,
         amount=product.price,
@@ -37,10 +53,11 @@ def create_pending_order(*, full_name, email, phone, country, program, package, 
     OrderItem.objects.create(order=order, title=title, amount=product.price)
     Payment.objects.create(
         order=order,
-        provider="unconfigured",
+        provider="pending-upay",
         amount=product.price,
         currency=product.currency,
         status=Payment.Status.PENDING,
+        raw_payload={"note": "UPAY / KNET INTEGRATION: NOT IMPLEMENTED — PENDING API DOCUMENTATION"},
     )
     return order
 
@@ -49,7 +66,7 @@ def create_pending_order(*, full_name, email, phone, country, program, package, 
 def fulfill_paid_order(order: Order, provider: str = "manual", transaction_id: str = ""):
     """Grant access after a payment provider confirms the charge.
 
-    Public checkout does not call this. Wire it from the provider webhook
+    Public checkout does not call this. Wire it from the Upay webhook
     or from the admin action once a transaction is verified.
     """
     if order.status == Order.Status.PAID and Subscription.objects.filter(order=order).exists():
@@ -72,6 +89,10 @@ def fulfill_paid_order(order: Order, provider: str = "manual", transaction_id: s
         profile.phone = order.phone
     if order.country and not profile.country:
         profile.country = order.country
+    if order.goal and not profile.goal:
+        profile.goal = order.goal
+    if order.gym_id and not profile.gym_id:
+        profile.gym = order.gym
     profile.save()
 
     order.user = user
@@ -87,33 +108,43 @@ def fulfill_paid_order(order: Order, provider: str = "manual", transaction_id: s
     payment.save()
 
     program = order.program
-    if program is None and order.package_id and order.package.program_id:
-        program = order.package.program
+    package = order.package
+    if program is None and package and package.program_id:
+        program = package.program
+    gym = order.gym or (package.gym if package else None) or profile.gym
 
-    if program is not None:
-        start = timezone.localdate()
-        weeks = order.package.duration_weeks if order.package_id else program.duration_weeks
-        Subscription.objects.update_or_create(
-            order=order,
-            defaults={
-                "user": user,
-                "program": program,
-                "status": Subscription.Status.ACTIVE,
-                "start_date": start,
-                "end_date": start + timedelta(weeks=weeks),
-                "coach_note": "Your plan is ready. Train the sessions as written and send your weekly check-in.",
-            },
-        )
+    start = timezone.localdate()
+    weeks = None
+    if package and package.duration_weeks:
+        weeks = package.duration_weeks
+    elif program and program.duration_weeks:
+        weeks = program.duration_weeks
+    weeks = weeks or 12
+    Subscription.objects.update_or_create(
+        order=order,
+        defaults={
+            "user": user,
+            "program": program,
+            "package": package,
+            "gym": gym,
+            "status": Subscription.Status.ACTIVE,
+            "start_date": start,
+            "end_date": start + timedelta(weeks=weeks),
+            "coach_note": "",
+        },
+    )
 
-    lines = [f"Your VBADRAN order {order.order_number} is confirmed."]
-    if program is not None:
+    lines = [f"Your Badran order {order.order_number} is confirmed."]
+    if package is not None:
+        lines.append(f"Package: {package.name}")
+    elif program is not None:
         lines.append(f"Program: {program.title}")
     if temporary_password:
         lines.append(f"An account was created for {user.email}.")
         lines.append(f"Temporary password: {temporary_password}")
         lines.append("Sign in and change it from your account page.")
     send_mail(
-        subject=f"VBADRAN order {order.order_number}",
+        subject=f"Badran order {order.order_number}",
         message="\n".join(lines),
         from_email=None,
         recipient_list=[user.email],

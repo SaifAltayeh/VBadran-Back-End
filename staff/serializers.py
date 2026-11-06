@@ -1,13 +1,47 @@
+from urllib.parse import urlparse
+
+from django.conf import settings
 from rest_framework import serializers
 
 from accounts.models import User
 from inquiries.models import ContactInquiry
 from nutrition.models import Meal, NutritionDay, NutritionNote, NutritionPlan
 from payments.models import Subscription
-from programs.models import Package, Program
+from programs.models import Gym, Package, Program
 from testimonials.models import Testimonial
 from transformations.models import Transformation
-from workouts.models import Exercise, PortalVideo, ProgramSchedule, Workout, WorkoutExercise
+from workouts.models import Exercise, MemberPlan, PortalVideo, ProgramSchedule, Workout, WorkoutExercise
+
+ALLOWED_VIDEO_HOSTS = (
+    "youtube.com",
+    "www.youtube.com",
+    "m.youtube.com",
+    "youtu.be",
+    "vimeo.com",
+    "www.vimeo.com",
+    "player.vimeo.com",
+)
+
+
+def validate_video_source(value: str) -> str:
+    url = (value or "").strip()
+    if not url:
+        raise serializers.ValidationError("Add a video file or a hosted video URL.")
+    if url.startswith("data:video/"):
+        if settings.DEBUG and not getattr(settings, "ON_VERCEL", False):
+            return url
+        raise serializers.ValidationError("Data URLs are not production video storage. Use a YouTube, Vimeo, or MP4 URL.")
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme in {"http", "https"} and (
+        host in ALLOWED_VIDEO_HOSTS or host.endswith(".youtube.com") or host.endswith(".vimeo.com")
+    ):
+        return url
+    if parsed.scheme in {"http", "https"} and url.lower().endswith((".mp4", ".webm", ".mov", ".m4v")):
+        return url
+    if url.startswith("/media/") and url.lower().endswith((".mp4", ".webm", ".mov", ".m4v")):
+        return url
+    raise serializers.ValidationError("Use YouTube, Vimeo, or a direct MP4/WebM URL.")
 
 
 class ProgramAdminSerializer(serializers.ModelSerializer):
@@ -16,15 +50,19 @@ class ProgramAdminSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "title",
+            "title_ar",
             "slug",
             "short_description",
+            "short_description_ar",
             "description",
+            "description_ar",
             "price",
             "currency",
             "duration_weeks",
             "difficulty",
             "category",
             "goal",
+            "goal_ar",
             "featured_image",
             "image_alt",
             "is_featured",
@@ -32,10 +70,15 @@ class ProgramAdminSerializer(serializers.ModelSerializer):
             "includes_nutrition",
             "includes_training",
             "expected_outcome",
+            "expected_outcome_ar",
             "who_for",
+            "who_for_ar",
             "training_structure",
+            "training_structure_ar",
             "nutrition_overview",
+            "nutrition_overview_ar",
             "support_overview",
+            "support_overview_ar",
         ]
 
     def validate_slug(self, value):
@@ -62,29 +105,46 @@ class ProgramAdminSerializer(serializers.ModelSerializer):
         for field in ("short_description", "description", "goal"):
             if field in attrs and not str(attrs.get(field) or "").strip():
                 attrs[field] = title
-        if "duration_weeks" in attrs and not attrs.get("duration_weeks"):
-            attrs["duration_weeks"] = 12
+        if "duration_weeks" in attrs and attrs.get("duration_weeks") in ("", 0):
+            attrs["duration_weeks"] = None
         if "price" in attrs and attrs.get("price") in (None, ""):
             attrs["price"] = 0
         return attrs
 
 
+class GymAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Gym
+        fields = ["id", "name", "name_ar", "slug", "is_active", "order"]
+
+
 class PackageAdminSerializer(serializers.ModelSerializer):
+    gym_name = serializers.CharField(source="gym.name", read_only=True)
+
     class Meta:
         model = Package
         fields = [
             "id",
             "name",
+            "name_ar",
             "slug",
             "tagline",
+            "tagline_ar",
             "description",
+            "description_ar",
             "duration_weeks",
             "price",
             "currency",
             "expected_outcome",
+            "expected_outcome_ar",
             "is_highlighted",
             "program",
+            "gym",
+            "gym_name",
+            "image",
+            "image_alt",
             "support_label",
+            "support_label_ar",
             "training_plan",
             "nutrition",
             "weekly_checkins",
@@ -97,6 +157,11 @@ class PackageAdminSerializer(serializers.ModelSerializer):
             "is_active",
         ]
 
+    def validate(self, attrs):
+        if attrs.get("duration_weeks") in ("", 0):
+            attrs["duration_weeks"] = None
+        return attrs
+
 
 class TransformationAdminSerializer(serializers.ModelSerializer):
     class Meta:
@@ -104,6 +169,7 @@ class TransformationAdminSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "client_name",
+            "client_name_ar",
             "slug",
             "before_image",
             "after_image",
@@ -111,9 +177,12 @@ class TransformationAdminSerializer(serializers.ModelSerializer):
             "image_alt",
             "duration_weeks",
             "result_summary",
+            "result_summary_ar",
             "program",
             "program_name",
+            "program_name_ar",
             "story",
+            "story_ar",
             "is_featured",
             "order",
         ]
@@ -145,34 +214,117 @@ class InquiryAdminSerializer(serializers.ModelSerializer):
 
 class ClientAdminSerializer(serializers.ModelSerializer):
     phone = serializers.CharField(source="profile.phone", read_only=True)
-    goal = serializers.CharField(source="profile.goal", read_only=True)
+    goal = serializers.CharField(source="profile.goal", required=False, allow_blank=True)
+    gym = serializers.IntegerField(source="profile.gym_id", required=False, allow_null=True)
+    gym_name = serializers.CharField(source="profile.gym.name", read_only=True, default="")
+    package_name = serializers.SerializerMethodField()
+    assigned_workout = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    assigned_plan = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "email", "first_name", "last_name", "is_staff", "is_active", "date_joined", "phone", "goal"]
-        read_only_fields = fields
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "is_staff",
+            "is_active",
+            "date_joined",
+            "phone",
+            "goal",
+            "gym",
+            "gym_name",
+            "package_name",
+            "assigned_workout",
+            "assigned_plan",
+        ]
+        read_only_fields = ["email", "is_staff", "is_active", "date_joined", "phone", "gym_name", "package_name", "assigned_plan"]
+
+    def get_package_name(self, obj):
+        sub = obj.subscriptions.filter(status=Subscription.Status.ACTIVE).select_related("package").first()
+        if sub and sub.package_id:
+            return sub.package.name
+        if sub and sub.program_id:
+            return sub.program.title
+        return ""
+
+    def get_assigned_plan(self, obj):
+        plan = obj.member_plans.filter(is_active=True).select_related("workout").first()
+        if not plan:
+            return None
+        return {"id": plan.id, "workout_id": plan.workout_id, "workout_title": plan.workout.title, "notes": plan.notes}
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop("profile", {})
+        assigned = validated_data.pop("assigned_workout", serializers.empty)
+        notes = self.context["request"].data.get("plan_notes", "") if self.context.get("request") else ""
+        super().update(instance, validated_data)
+        profile = instance.profile
+        if "goal" in profile_data:
+            profile.goal = profile_data["goal"]
+        if "gym_id" in profile_data:
+            profile.gym_id = profile_data["gym_id"]
+        profile.save()
+        if assigned is not serializers.empty:
+            instance.member_plans.filter(is_active=True).update(is_active=False)
+            if assigned:
+                MemberPlan.objects.create(user=instance, workout_id=assigned, notes=notes or "", is_active=True)
+        return instance
 
 
 class ExerciseAdminSerializer(serializers.ModelSerializer):
+    package_ids = serializers.PrimaryKeyRelatedField(
+        source="packages",
+        many=True,
+        queryset=Package.objects.all(),
+        required=False,
+    )
+    package_names = serializers.SerializerMethodField()
+
     class Meta:
         model = Exercise
         fields = [
             "id",
             "name",
+            "name_ar",
             "slug",
             "description",
+            "description_ar",
             "video_url",
             "thumbnail",
             "image_alt",
             "muscle_group",
             "difficulty",
             "instructions",
+            "instructions_ar",
             "tips",
+            "tips_ar",
+            "package_ids",
+            "package_names",
+            "is_active",
         ]
+        read_only_fields = ["package_names"]
+
+    def get_package_names(self, obj):
+        return [package.name for package in obj.packages.all()]
+
+    def validate_video_url(self, value):
+        if not (value or "").strip():
+            return value
+        return validate_video_source(value)
 
 
 class PortalVideoAdminSerializer(serializers.ModelSerializer):
-    program_title = serializers.CharField(source="program.title", read_only=True)
+    program_title = serializers.CharField(source="program.title", read_only=True, default="")
+    gym_name = serializers.CharField(source="gym.name", read_only=True, default="")
+    package_ids = serializers.PrimaryKeyRelatedField(
+        source="packages",
+        many=True,
+        queryset=Package.objects.all(),
+        required=False,
+    )
+    package_names = serializers.SerializerMethodField()
 
     class Meta:
         model = PortalVideo
@@ -180,8 +332,14 @@ class PortalVideoAdminSerializer(serializers.ModelSerializer):
             "id",
             "program",
             "program_title",
+            "package_ids",
+            "package_names",
+            "gym",
+            "gym_name",
             "title",
+            "title_ar",
             "description",
+            "description_ar",
             "video_url",
             "thumbnail",
             "order",
@@ -189,7 +347,13 @@ class PortalVideoAdminSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["created_at", "updated_at", "program_title"]
+        read_only_fields = ["created_at", "updated_at", "program_title", "gym_name", "package_names"]
+
+    def get_package_names(self, obj):
+        return [package.name for package in obj.packages.all()]
+
+    def validate_video_url(self, value):
+        return validate_video_source(value)
 
 
 class WorkoutItemWriteSerializer(serializers.Serializer):
@@ -211,12 +375,17 @@ class WorkoutAdminSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "title",
+            "title_ar",
             "slug",
             "description",
+            "description_ar",
             "duration_minutes",
             "focus",
+            "focus_ar",
             "coach_notes",
+            "coach_notes_ar",
             "warmup",
+            "warmup_ar",
             "items",
             "item_rows",
         ]
@@ -394,7 +563,9 @@ class NutritionPlanAdminSerializer(serializers.ModelSerializer):
 class SubscriptionAdminSerializer(serializers.ModelSerializer):
     user_email = serializers.EmailField(source="user.email", read_only=True)
     user_name = serializers.SerializerMethodField()
-    program_title = serializers.CharField(source="program.title", read_only=True)
+    program_title = serializers.CharField(source="program.title", read_only=True, default="")
+    package_name = serializers.CharField(source="package.name", read_only=True, default="")
+    gym_name = serializers.CharField(source="gym.name", read_only=True, default="")
 
     class Meta:
         model = Subscription
@@ -405,6 +576,10 @@ class SubscriptionAdminSerializer(serializers.ModelSerializer):
             "user_name",
             "program",
             "program_title",
+            "package",
+            "package_name",
+            "gym",
+            "gym_name",
             "order",
             "status",
             "start_date",
@@ -412,7 +587,37 @@ class SubscriptionAdminSerializer(serializers.ModelSerializer):
             "coach_note",
             "created_at",
         ]
-        read_only_fields = ["created_at", "user_email", "user_name", "program_title"]
+        read_only_fields = ["created_at", "user_email", "user_name", "program_title", "package_name", "gym_name"]
 
     def get_user_name(self, obj):
         return (f"{obj.user.first_name} {obj.user.last_name}").strip() or obj.user.email
+
+
+class MemberPlanAdminSerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+    workout_title = serializers.CharField(source="workout.title", read_only=True)
+
+    class Meta:
+        model = MemberPlan
+        fields = [
+            "id",
+            "user",
+            "user_email",
+            "workout",
+            "workout_title",
+            "notes",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at", "user_email", "workout_title"]
+
+    def create(self, validated_data):
+        if validated_data.get("is_active", True):
+            MemberPlan.objects.filter(user=validated_data["user"], is_active=True).update(is_active=False)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if validated_data.get("is_active", instance.is_active):
+            MemberPlan.objects.filter(user=instance.user, is_active=True).exclude(pk=instance.pk).update(is_active=False)
+        return super().update(instance, validated_data)

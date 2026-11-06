@@ -1,18 +1,24 @@
 from rest_framework import serializers
 
-from .models import Package, Program, ProgramFAQ, ProgramFeature
+from .models import Gym, Package, Program, ProgramFAQ, ProgramFeature
+
+
+class GymSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Gym
+        fields = ["id", "name", "name_ar", "slug", "is_active", "order"]
 
 
 class ProgramFeatureSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProgramFeature
-        fields = ["id", "text"]
+        fields = ["id", "text", "text_ar"]
 
 
 class ProgramFAQSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProgramFAQ
-        fields = ["id", "question", "answer"]
+        fields = ["id", "question", "question_ar", "answer", "answer_ar"]
 
 
 class ProgramSerializer(serializers.ModelSerializer):
@@ -26,9 +32,12 @@ class ProgramSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "title",
+            "title_ar",
             "slug",
             "short_description",
+            "short_description_ar",
             "description",
+            "description_ar",
             "price",
             "currency",
             "duration_weeks",
@@ -37,16 +46,22 @@ class ProgramSerializer(serializers.ModelSerializer):
             "category",
             "category_label",
             "goal",
+            "goal_ar",
             "featured_image",
             "image_alt",
             "is_featured",
             "includes_nutrition",
             "includes_training",
             "expected_outcome",
+            "expected_outcome_ar",
             "who_for",
+            "who_for_ar",
             "training_structure",
+            "training_structure_ar",
             "nutrition_overview",
+            "nutrition_overview_ar",
             "support_overview",
+            "support_overview_ar",
             "features",
             "faqs",
         ]
@@ -55,22 +70,31 @@ class ProgramSerializer(serializers.ModelSerializer):
 class PackageSerializer(serializers.ModelSerializer):
     program_slug = serializers.SerializerMethodField()
     features = serializers.SerializerMethodField()
+    gym = GymSerializer(read_only=True)
 
     class Meta:
         model = Package
         fields = [
             "id",
             "name",
+            "name_ar",
             "slug",
             "tagline",
+            "tagline_ar",
             "description",
+            "description_ar",
             "duration_weeks",
             "price",
             "currency",
             "expected_outcome",
+            "expected_outcome_ar",
             "is_highlighted",
             "program_slug",
             "support_label",
+            "support_label_ar",
+            "image",
+            "image_alt",
+            "gym",
             "features",
         ]
 

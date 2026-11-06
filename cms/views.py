@@ -13,6 +13,19 @@ from rest_framework.views import APIView
 
 from .defaults import DEFAULT_HOME
 from .models import SiteHome
+from .sanitize import replace_stale_copy
+
+
+def clean_socials(socials):
+    items = []
+    for item in socials or []:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label") or "").strip()
+        href = str(item.get("href") or "").strip()
+        if label or href:
+            items.append({"label": label, "href": href})
+    return items
 
 
 def deep_merge(base, incoming):
@@ -25,7 +38,7 @@ def deep_merge(base, incoming):
 
 
 def normalize_home(data):
-    home = deep_merge(DEFAULT_HOME, data or {})
+    home = replace_stale_copy(deep_merge(DEFAULT_HOME, data or {}))
     hero = home.get("hero") or {}
     title = hero.get("title") or {}
     for lang in ("en", "ar"):
@@ -38,10 +51,9 @@ def normalize_home(data):
     default_site = DEFAULT_HOME.get("site") or {}
     hrefs = " ".join(str((item or {}).get("href", "")) for item in (site.get("socials") or []) if isinstance(item, dict))
     stale = (
-        site.get("email") in ("", "hello@vbadran.com")
+        site.get("email") == "hello@vbadran.com"
         or "962790000000" in str(site.get("phoneHref") or "")
-        or "tiktok" in hrefs.lower()
-        or ("instagram.com/vbadran" in hrefs and "vbadrann" not in hrefs)
+        or ("instagram.com/vbadran/" in hrefs and "instagram.com/vbadrann" not in hrefs)
         or "wa.me/962" in hrefs
     )
     if stale:
@@ -50,12 +62,27 @@ def normalize_home(data):
         site["phoneHref"] = default_site.get("phoneHref", site.get("phoneHref"))
         site["socials"] = list(default_site.get("socials") or [])
     else:
-        site["socials"] = [
-            item
-            for item in (site.get("socials") or [])
-            if isinstance(item, dict) and "tiktok" not in str(item.get("href") or "").lower() and str(item.get("label") or "").lower() != "tiktok"
-        ]
+        site["socials"] = clean_socials(site.get("socials"))
     home["site"] = site
+    hero = home.get("hero") or {}
+    primary = hero.get("primary") or {}
+    secondary = hero.get("secondary") or {}
+    if primary.get("href") == "/pricing":
+        primary["href"] = "/programs"
+        hero["primary"] = primary
+    if secondary.get("href") == "/pricing":
+        secondary["href"] = "/programs"
+        hero["secondary"] = secondary
+    home["hero"] = hero
+    sections = home.get("sections") or {}
+    cta = sections.get("cta") or {}
+    if cta.get("href") == "/pricing":
+        cta["href"] = "/programs"
+        sections["cta"] = cta
+    pricing = sections.get("pricing") or {}
+    pricing["visible"] = False
+    sections["pricing"] = pricing
+    home["sections"] = sections
     return home
 
 
@@ -157,19 +184,33 @@ class VideoUploadView(APIView):
         if extension not in allowed and not content_type.startswith("video/"):
             return Response({"detail": "Upload an MP4 or WebM video."}, status=400)
 
-        max_bytes = int(3.5 * 1024 * 1024)
-        if upload.size and upload.size > max_bytes:
+        if getattr(settings, "ON_VERCEL", False) or not settings.DEBUG:
             return Response(
-                {"detail": "Videos must be 3.5MB or smaller. Use a short 1280×720 MP4."},
+                {
+                    "detail": "File upload is not available on this host. Paste a YouTube, Vimeo, or direct MP4 URL. Base64 data URLs are not production video storage.",
+                },
                 status=400,
             )
 
-        payload = upload.read()
-        mime = content_type if content_type.startswith("video/") else "video/mp4"
-        if extension == ".webm":
-            mime = "video/webm"
-        elif extension == ".mov":
-            mime = "video/quicktime"
-        encoded = base64.b64encode(payload).decode("ascii")
-        data_url = f"data:{mime};base64,{encoded}"
-        return Response({"url": data_url, "path": data_url})
+        max_bytes = int(12 * 1024 * 1024)
+        if upload.size and upload.size > max_bytes:
+            return Response(
+                {
+                    "detail": "Videos must be 12MB or smaller. For staging and production, paste a YouTube or Vimeo URL instead of uploading a file.",
+                },
+                status=400,
+            )
+
+        filename = f"videos/{uuid.uuid4().hex}{extension}"
+        saved = default_storage.save(filename, upload)
+        relative = f"{settings.MEDIA_URL.rstrip('/')}/{saved.lstrip('/')}"
+        absolute = request.build_absolute_uri(relative)
+        return Response(
+            {
+                "url": relative,
+                "path": relative,
+                "file_url": absolute,
+                "storage": "local-media",
+                "warning": "Saved to local media. Hosted YouTube, Vimeo, or MP4 URLs are required on staging and production. Base64 data URLs are not video storage.",
+            }
+        )

@@ -2,7 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from accounts.models import User
@@ -183,10 +183,18 @@ PROGRAMS = [
 
 
 class Command(BaseCommand):
-    help = "Load VBADRAN demo content and a client account."
+    help = "Load local demo catalog and test accounts. Never run this on staging or production."
 
     def handle(self, *args, **options):
-        password = settings.DEMO_PASSWORD
+        if getattr(settings, "ON_VERCEL", False):
+            raise CommandError("seed_demo cannot run on Vercel or hosted production.")
+        if not settings.DEBUG:
+            raise CommandError("seed_demo is local development only.")
+        if not getattr(settings, "ALLOW_DEMO_SEED", False):
+            raise CommandError("Refusing to seed. Set ALLOW_DEMO_SEED=true in local .env.")
+        password = (getattr(settings, "DEMO_PASSWORD", "") or "").strip()
+        if not password:
+            raise CommandError("Set DEMO_PASSWORD in local .env. Do not commit it.")
         programs = {}
         for data in PROGRAMS:
             features = data.pop("features")
@@ -202,6 +210,8 @@ class Command(BaseCommand):
             data["features"] = features
             data["faqs"] = faqs
 
+        # DEMO catalog only. Client gym packages (Spark, Platinum, Oxygen) are CMS-managed
+        # and must not be created or priced here.
         package_rows = [
             ("Foundation", "foundation", "The plan, clearly written.", "An eight-week training block with the video library.", 8, "190.00", "Eight weeks of sessions you can run on your own.", False, "training-programs", "Plan access", False, False, False),
             ("Progress", "progress", "Training, food, and a weekly check-in.", "Online coaching for twelve weeks.", 12, "340.00", "A steadier week and visible progress by the end of the block.", False, "online-coaching", "Weekly check-in", True, True, True),
@@ -446,7 +456,7 @@ class Command(BaseCommand):
         Message.objects.create(conversation=conversation, sender=client, is_coach=False, body="Knee was fine. Energy is better when I train in the afternoon.")
         Message.objects.create(conversation=conversation, sender=coach, is_coach=True, body="Good. Hold the calories where they are. Protein stays the priority on training days.")
 
-        self.stdout.write(self.style.SUCCESS("Demo content ready."))
-        self.stdout.write(f"Admin: admin@vbadran.com / {password}")
-        self.stdout.write(f"Client: client@vbadran.com / {password}")
+        self.stdout.write(self.style.SUCCESS("Local demo content ready."))
+        self.stdout.write("Demo emails: admin@vbadran.com, client@vbadran.com, coach@vbadran.com")
+        self.stdout.write("Passwords come from DEMO_PASSWORD in local .env. Do not use this command on staging.")
         self.stdout.write(f"Unused account handle kept for admin id {admin.id}.")

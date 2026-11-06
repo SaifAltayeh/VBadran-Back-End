@@ -1,21 +1,24 @@
+from django.db import transaction
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
+from rest_framework.viewsets import ModelViewSet
 
 from accounts.models import User
 from inquiries.models import ContactInquiry
 from nutrition.models import NutritionPlan
 from payments.models import Order, Subscription
-from programs.models import Package, Program
+from programs.models import Gym, Package, Program
 from testimonials.models import Testimonial
 from transformations.models import Transformation
-from workouts.models import Exercise, PortalVideo, ProgramSchedule, Workout
+from workouts.models import Exercise, MemberPlan, PortalVideo, ProgramSchedule, Workout
 
 from .serializers import (
     ClientAdminSerializer,
     ExerciseAdminSerializer,
+    GymAdminSerializer,
     InquiryAdminSerializer,
+    MemberPlanAdminSerializer,
     NutritionPlanAdminSerializer,
     PackageAdminSerializer,
     PortalVideoAdminSerializer,
@@ -59,7 +62,13 @@ class ProgramAdminViewSet(ModelViewSet):
 class PackageAdminViewSet(ModelViewSet):
     permission_classes = [IsAdminUser]
     serializer_class = PackageAdminSerializer
-    queryset = Package.objects.all().select_related("program")
+    queryset = Package.objects.all().select_related("program", "gym")
+
+
+class GymAdminViewSet(ModelViewSet):
+    permission_classes = [IsAdminUser]
+    serializer_class = GymAdminSerializer
+    queryset = Gym.objects.all()
 
 
 class TransformationAdminViewSet(ModelViewSet):
@@ -81,23 +90,29 @@ class InquiryAdminViewSet(ModelViewSet):
     http_method_names = ["get", "head", "patch", "options"]
 
 
-class ClientAdminViewSet(ReadOnlyModelViewSet):
+class ClientAdminViewSet(ModelViewSet):
     permission_classes = [IsAdminUser]
     serializer_class = ClientAdminSerializer
-    queryset = User.objects.select_related("profile").order_by("-date_joined")
+    queryset = User.objects.select_related("profile", "profile__gym").order_by("-date_joined")
+    http_method_names = ["get", "head", "patch", "options"]
 
 
 class ExerciseAdminViewSet(ModelViewSet):
     permission_classes = [IsAdminUser]
     serializer_class = ExerciseAdminSerializer
-    queryset = Exercise.objects.all()
+    queryset = Exercise.objects.prefetch_related("packages").all()
+
+    def perform_destroy(self, instance):
+        with transaction.atomic():
+            instance.usages.all().delete()
+            instance.delete()
 
 
 class PortalVideoAdminViewSet(ModelViewSet):
     permission_classes = [IsAdminUser]
     serializer_class = PortalVideoAdminSerializer
-    queryset = PortalVideo.objects.select_related("program").all()
-    filterset_fields = ["program", "is_active"]
+    queryset = PortalVideo.objects.select_related("program", "gym").prefetch_related("packages").all()
+    filterset_fields = ["program", "gym", "is_active"]
 
 
 class WorkoutAdminViewSet(ModelViewSet):
@@ -122,5 +137,12 @@ class NutritionPlanAdminViewSet(ModelViewSet):
 class SubscriptionAdminViewSet(ModelViewSet):
     permission_classes = [IsAdminUser]
     serializer_class = SubscriptionAdminSerializer
-    queryset = Subscription.objects.select_related("user", "program").all()
-    filterset_fields = ["status", "program", "user"]
+    queryset = Subscription.objects.select_related("user", "program", "package", "gym").all()
+    filterset_fields = ["status", "program", "package", "user"]
+
+
+class MemberPlanAdminViewSet(ModelViewSet):
+    permission_classes = [IsAdminUser]
+    serializer_class = MemberPlanAdminSerializer
+    queryset = MemberPlan.objects.select_related("user", "workout").all()
+    filterset_fields = ["user", "workout", "is_active"]

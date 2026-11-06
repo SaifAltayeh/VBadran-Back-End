@@ -24,6 +24,8 @@ class Order(models.Model):
     email = models.EmailField()
     phone = models.CharField(max_length=32, blank=True)
     country = models.CharField(max_length=80, blank=True)
+    goal = models.CharField(max_length=255, blank=True)
+    gym = models.ForeignKey("programs.Gym", related_name="orders", null=True, blank=True, on_delete=models.SET_NULL)
     program = models.ForeignKey(Program, related_name="orders", null=True, blank=True, on_delete=models.SET_NULL)
     package = models.ForeignKey(Package, related_name="orders", null=True, blank=True, on_delete=models.SET_NULL)
     amount = models.DecimalField(max_digits=8, decimal_places=2)
@@ -58,7 +60,9 @@ class Subscription(models.Model):
         EXPIRED = "expired", "Expired"
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="subscriptions", on_delete=models.CASCADE)
-    program = models.ForeignKey(Program, related_name="subscriptions", on_delete=models.PROTECT)
+    program = models.ForeignKey(Program, related_name="subscriptions", null=True, blank=True, on_delete=models.PROTECT)
+    package = models.ForeignKey(Package, related_name="subscriptions", null=True, blank=True, on_delete=models.SET_NULL)
+    gym = models.ForeignKey("programs.Gym", related_name="subscriptions", null=True, blank=True, on_delete=models.SET_NULL)
     order = models.ForeignKey(Order, related_name="subscriptions", null=True, blank=True, on_delete=models.SET_NULL)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     start_date = models.DateField()
@@ -70,7 +74,8 @@ class Subscription(models.Model):
         ordering = ["-start_date"]
 
     def __str__(self):
-        return f"{self.user.email} · {self.program.title}"
+        label = self.package.name if self.package_id else (self.program.title if self.program_id else "Membership")
+        return f"{self.user.email} · {label}"
 
 
 class Payment(models.Model):

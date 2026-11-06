@@ -142,8 +142,8 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path("/tmp/vbadran-media") if ON_VERCEL else BASE_DIR / "media"
-DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
-FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = 13 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 13 * 1024 * 1024
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -210,4 +210,6 @@ EMAIL_BACKEND = os.environ.get(
     "django.core.mail.backends.console.EmailBackend",
 )
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "VBADRAN <hello@vbadran.com>")
-DEMO_PASSWORD = os.environ.get("DEMO_PASSWORD", "Vbadran2026!")
+DEMO_PASSWORD = os.environ.get("DEMO_PASSWORD", "")
+ALLOW_DEMO_SEED = os.environ.get("ALLOW_DEMO_SEED", "").lower() in {"1", "true", "yes"}
+ALLOW_GYM_PACKAGE_IMPORT = os.environ.get("ALLOW_GYM_PACKAGE_IMPORT", "").lower() in {"1", "true", "yes"}

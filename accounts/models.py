@@ -50,6 +50,13 @@ class Profile(models.Model):
     country = models.CharField(max_length=80, blank=True)
     goal = models.CharField(max_length=255, blank=True)
     fitness_level = models.CharField(max_length=32, choices=FitnessLevel.choices, blank=True)
+    gym = models.ForeignKey(
+        "programs.Gym",
+        related_name="members",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

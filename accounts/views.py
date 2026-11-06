@@ -51,7 +51,7 @@ class PasswordResetRequestView(APIView):
             token = default_token_generator.make_token(user)
             link = f"{settings.FRONTEND_URL}/reset-password?uid={uid}&token={token}"
             send_mail(
-                subject="Reset your VBADRAN password",
+                subject="Reset your Badran password",
                 message=f"Use this link to choose a new password:\n\n{link}\n\nIf you did not ask for this, you can ignore the email.",
                 from_email=None,
                 recipient_list=[user.email],
@@ -83,14 +83,26 @@ class AccountView(APIView):
     def get(self, request):
         purchases = []
         subscription = (
-            Subscription.objects.filter(user=request.user).select_related("program").order_by("-start_date").first()
+            Subscription.objects.filter(user=request.user)
+            .select_related("program", "package")
+            .order_by("-start_date")
+            .first()
         )
         for order in Order.objects.filter(user=request.user).select_related("program", "package")[:12]:
-            title = order.program.title if order.program_id else (order.package.name if order.package_id else "Program")
+            if order.package_id:
+                title = order.package.name
+                title_ar = order.package.name_ar
+            elif order.program_id:
+                title = order.program.title
+                title_ar = order.program.title_ar
+            else:
+                title = "Program"
+                title_ar = "برنامج"
             purchases.append(
                 {
                     "order_number": order.order_number,
                     "title": title,
+                    "title_ar": title_ar,
                     "status": order.status,
                     "amount": str(order.amount),
                     "currency": order.currency,
@@ -98,7 +110,15 @@ class AccountView(APIView):
                 }
             )
         data = AccountSerializer(request.user).data
-        data["current_program"] = subscription.program.title if subscription else None
+        if subscription and subscription.package_id:
+            data["current_program"] = subscription.package.name
+            data["current_program_ar"] = subscription.package.name_ar
+        elif subscription and subscription.program_id:
+            data["current_program"] = subscription.program.title
+            data["current_program_ar"] = subscription.program.title_ar
+        else:
+            data["current_program"] = None
+            data["current_program_ar"] = None
         data["purchases"] = purchases
         return Response(data)
 

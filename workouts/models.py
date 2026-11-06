@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import models
 
-from programs.models import Program
+from programs.models import Gym, Package, Program
 
 
 class Exercise(models.Model):
@@ -11,15 +11,21 @@ class Exercise(models.Model):
         ADVANCED = "advanced", "Advanced"
 
     name = models.CharField(max_length=160)
+    name_ar = models.CharField(max_length=160, blank=True)
     slug = models.SlugField(unique=True)
     description = models.TextField(blank=True)
+    description_ar = models.TextField(blank=True)
     video_url = models.TextField(blank=True)
     thumbnail = models.TextField(blank=True)
     image_alt = models.CharField(max_length=255, blank=True)
     muscle_group = models.CharField(max_length=80)
     difficulty = models.CharField(max_length=24, choices=Difficulty.choices, default=Difficulty.INTERMEDIATE)
     instructions = models.TextField(blank=True)
+    instructions_ar = models.TextField(blank=True)
     tips = models.TextField(blank=True)
+    tips_ar = models.TextField(blank=True)
+    packages = models.ManyToManyField(Package, related_name="exercises", blank=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["name"]
@@ -29,9 +35,19 @@ class Exercise(models.Model):
 
 
 class PortalVideo(models.Model):
-    program = models.ForeignKey(Program, related_name="portal_videos", on_delete=models.CASCADE)
+    program = models.ForeignKey(
+        Program,
+        related_name="portal_videos",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
+    packages = models.ManyToManyField(Package, related_name="portal_videos", blank=True)
+    gym = models.ForeignKey(Gym, related_name="portal_videos", null=True, blank=True, on_delete=models.SET_NULL)
     title = models.CharField(max_length=160)
+    title_ar = models.CharField(max_length=160, blank=True)
     description = models.TextField(blank=True)
+    description_ar = models.TextField(blank=True)
     video_url = models.TextField()
     thumbnail = models.TextField(blank=True)
     order = models.PositiveIntegerField(default=0)
@@ -48,12 +64,17 @@ class PortalVideo(models.Model):
 
 class Workout(models.Model):
     title = models.CharField(max_length=160)
+    title_ar = models.CharField(max_length=160, blank=True)
     slug = models.SlugField(unique=True)
     description = models.TextField(blank=True)
+    description_ar = models.TextField(blank=True)
     duration_minutes = models.PositiveIntegerField(default=45)
     focus = models.CharField(max_length=80, blank=True)
+    focus_ar = models.CharField(max_length=80, blank=True)
     coach_notes = models.TextField(blank=True)
+    coach_notes_ar = models.TextField(blank=True)
     warmup = models.TextField(blank=True)
+    warmup_ar = models.TextField(blank=True)
 
     class Meta:
         ordering = ["id"]
@@ -71,6 +92,7 @@ class WorkoutExercise(models.Model):
     tempo = models.CharField(max_length=40, blank=True)
     order = models.PositiveIntegerField(default=0)
     notes = models.TextField(blank=True)
+    notes_ar = models.TextField(blank=True)
 
     class Meta:
         ordering = ["order", "id"]
@@ -105,3 +127,18 @@ class WorkoutCompletion(models.Model):
 
     def __str__(self):
         return f"{self.user.email} · {self.schedule}"
+
+
+class MemberPlan(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="member_plans", on_delete=models.CASCADE)
+    workout = models.ForeignKey(Workout, related_name="member_assignments", on_delete=models.PROTECT)
+    notes = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"{self.user.email} · {self.workout.title}"

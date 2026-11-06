@@ -1,8 +1,8 @@
 from rest_framework.permissions import AllowAny
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
-from .models import Package, Program
-from .serializers import PackageSerializer, ProgramSerializer
+from .models import Gym, Package, Program
+from .serializers import GymSerializer, PackageSerializer, ProgramSerializer
 
 
 class ProgramViewSet(ReadOnlyModelViewSet):
@@ -17,4 +17,11 @@ class PackageViewSet(ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
     serializer_class = PackageSerializer
     lookup_field = "slug"
-    queryset = Package.objects.filter(is_active=True).select_related("program")
+    queryset = Package.objects.filter(is_active=True).select_related("program", "gym")
+
+
+class GymViewSet(ReadOnlyModelViewSet):
+    permission_classes = [AllowAny]
+    serializer_class = GymSerializer
+    lookup_field = "slug"
+    queryset = Gym.objects.filter(is_active=True)

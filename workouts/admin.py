@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Exercise, PortalVideo, ProgramSchedule, Workout, WorkoutCompletion, WorkoutExercise
+from .models import Exercise, MemberPlan, PortalVideo, ProgramSchedule, Workout, WorkoutCompletion, WorkoutExercise
 
 
 class WorkoutExerciseInline(admin.TabularInline):
@@ -10,16 +10,17 @@ class WorkoutExerciseInline(admin.TabularInline):
 
 @admin.register(Exercise)
 class ExerciseAdmin(admin.ModelAdmin):
-    list_display = ("name", "muscle_group", "difficulty")
-    list_filter = ("muscle_group", "difficulty")
+    list_display = ("name", "muscle_group", "difficulty", "is_active")
+    list_filter = ("muscle_group", "difficulty", "is_active")
     search_fields = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
 
 
 @admin.register(PortalVideo)
 class PortalVideoAdmin(admin.ModelAdmin):
-    list_display = ("title", "program", "order", "is_active")
-    list_filter = ("program", "is_active")
+    list_display = ("title", "program", "gym", "order", "is_active")
+    list_filter = ("program", "gym", "is_active")
+    filter_horizontal = ("packages",)
     search_fields = ("title", "video_url")
 
 
@@ -41,3 +42,10 @@ class ProgramScheduleAdmin(admin.ModelAdmin):
 class WorkoutCompletionAdmin(admin.ModelAdmin):
     list_display = ("user", "schedule", "completed_at")
     search_fields = ("user__email",)
+
+
+@admin.register(MemberPlan)
+class MemberPlanAdmin(admin.ModelAdmin):
+    list_display = ("user", "workout", "is_active", "updated_at")
+    list_filter = ("is_active",)
+    search_fields = ("user__email", "workout__title")
